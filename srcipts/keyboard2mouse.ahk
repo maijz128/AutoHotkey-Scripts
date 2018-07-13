@@ -3,27 +3,17 @@
 SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
 SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 
-; #Include %A_ScriptDir%\vendor\logg\logg2.ahk
 
 #Persistent
 #SingleInstance 
 
+#Include %A_ScriptDir%\logger.ahk
 
+global testLogger := new Logger("keyboard2mouse.test.log")
 loging(msg){ 
-    ; logg(msg)
+    ;testLogger.log(msg)
 }
 
-; Logger start
-global logloc := A_WorkingDir . "\AHK_LOG.log"
-global consolecol = "c000000"
-global cfontcol = "c15bb10"
-global consid = 0
-global LogConts := ""
-conmaxh = 1050
-conmaxw = 500
-conspadding = 10
-conshide := true
-; Logger end
 
 
 ; 变量区
@@ -37,8 +27,9 @@ SetTitleMatchMode, 1
 #IfWinActive ahk_exe notepad++.exe
 {
      
-
-    $^F11::reset()
+    $^F8::readData() 
+    $^F9::saveData()
+    $^F11::resetData()
     $^F10::enterRecord()
     $^F12::quitRecord()
 
@@ -88,21 +79,33 @@ quitRecord(){
 handle(keyName){ 
     workerA.handle(keyName) 
 }
-reset(){
-    workerA.reset();
+resetData(){
+    workerA.resetData()
+}
+readData(){
+    workerA.readData()
+}
+saveData(){
+    workerA.saveData()
 }
 
 
 Class Worker {
     isRecord := False
-    keyMap := {"keyA": "valueA"}
+    keyMap := {}
+    filename := ""
+    testData := {"keyA": "valueA"}
+
+    __New(filename = "keyboard2mouse.data.txt"){
+        this.filename := filename
+    }
 
     test(){
-        v := this.keyMap["a"]
-        if(this.keyMap.HasKey("a")){
+        v := this.testData["keyA"]
+        if(this.testData.HasKey("keyA")){
             send %v%
+            loging(v)
         }
-        loging(v)
     }
 
     enterRecord(){
@@ -117,9 +120,63 @@ Class Worker {
         this.showMessage("quit record.")
     }
 
-    reset(){
-        this.keyMap := {"keyA": "valueA"}
-        this.showMessage("reset")
+    resetData(){
+        this.keyMap := {}
+        loging("reset data")
+        this.showMessage("reset data")
+    }
+
+    readData(){
+        filename := this.filename
+        IfNotExist, %filename% 
+        {
+            loging("not exist data file.")
+            return
+        }
+        loging("read data...")
+        Loop, read, %filename% 
+        {
+            If (A_LoopReadLine = ""){
+                Continue
+            }
+            array := StrSplit(A_LoopReadLine, ",", " `t")
+            keyName := array[1]
+            xpos := array[2]
+            ypos := array[3]
+
+            this.keyMap[keyName] := {"x": xpos, "y": ypos}
+            loging(" key_" . keyName . " x_" . xpos . " y_" . ypos)
+        }
+        loging("read data done.")
+        this.showMessage("read data")
+    }
+
+    saveData(){
+        filename := this.filename
+        IfExist, %filename% 
+        {
+            FileDelete, %filename%
+        }
+
+        loging("save data start...")
+        array := this.keyMap
+        For key, value in array
+        {
+            keyName := key
+            xpos := value["x"]
+            ypos := value["y"]
+
+            if(keyName != "" && xpos != "" && ypos != ""){
+                line := keyName . "," . xpos . "," . ypos
+                FileAppend, %line%, %filename%
+                FileAppend, `n, %filename%  ; new line
+
+                loging(" key_" . keyName . " x_" . xpos . " y_" . ypos) 
+            }
+
+        }
+        loging("save data done.")
+        this.showMessage("save data")
     }
 
     handle(keyName){
@@ -175,10 +232,15 @@ Class Worker {
 
 
 
-
-
-
 ;BEGIN ClassLib 
+
+MaxLength(Array)
+{
+	For each, item in Array
+		If (StrLen(item) > MaxLength)
+			MaxLength := StrLen(item)
+	return MaxLength
+}
 
 PressKey(key, count:=1, interval:=100)
 {
@@ -199,140 +261,3 @@ PressKeyOnce(key, sleep:=1){
 
 ;END ClassLib 
 
-
-; Logger
-logg(msg)
-{
-	global
-	if(msg == "C_C")
-	{
-		consoleClose()
-		return
-	}
-	oldlogstate := ""
-	if(consid != 0)
-	{
-		FileRead, oldlogstate, % logloc
-		if(oldlogstate != "")
-		{
-			oldlogstate := "`r`n" . oldlogstate
-		}
-	}
-	FileDelete, % logloc
-	sleep, 10
-	
-	
-	ntext := DateString() . ": " . msg . oldlogstate
-	
-	FileAppend, % ntext, % logloc
-	
-	if(consid = 0)
-	{
-	; +E0x20 ; <-- click through!
-	GUI, Console: New, +Lastfound +AlwaysOnTop +ToolWindow +E0x08000000, Console
-	gui, Console: color, %consolecol%
-	WinSet, Transparent, 180
-	Gui, Console: -Caption
-	cbuwi := 17
-	cbuhe := 14
-	cbux := conmaxw-cbuwi-conspadding
-	cbuy := 0
-	gui, Console: Font, S7 center
-	gui, add, button, gminConsole w%cbuwi% h%cbuhe% x%cbux% y%cbuy%, _
-	cbuy += 18
-	gui, add, button, gslideConsole w%cbuwi% h%cbuhe% x%cbux% y%cbuy%, <
-	cbuy += 18
-	gui, add, button, gclearConsole w%cbuwi% h%cbuhe% x%cbux% y%cbuy%, C
-	cbuy += 18
-	gui, add, button, gsaveConsole w%cbuwi% h%cbuhe% x%cbux% y%cbuy%, S
-	cbuy += 18
-	gui, add, button, gopenConsole w%cbuwi% h%cbuhe% x%cbux% y%cbuy%, O
-	cbuy += 18
-	gui, add, button, gcloseConsole w%cbuwi% h%cbuhe% x%cbux% y%cbuy%, X
-	FileDelete, logloc
-	sleep, 10
-	}
-	Gui, Console: +LastFound
-	GuiControl, Hide, %LogConts%
-	GuiControl, Disable, %LogConts%
-	Gui, Color,, %consolecol%
-	GuiControl, Text, %LogConts%, % ""
-	Gui, Console: Font, S10, Consolas
-	tWmax := conmaxw - (2*conspadding) - 25
-	Gui, Console: Add, Edit, x%conspadding% y%conspadding% w%tWmax% %cfontcol% -VScroll -E0x200 HwndLogConts, % ntext
-	ControlGetPos,,,, ctH,, ahk_id %LogConts%
-	if(ctH + 2*conspadding > conmaxh)
-	{
-		ControlMove,,,,,conmaxh-2*conspadding, ahk_id %LogConts%
-	}
-	
-	if(consid==0)
-	{
-	gui, Console: show, x0 y0 autosize NoActivate
-	gui, Console: +LastFound
-	consid := WinExist()
-	}
-	else
-	{
-	gui, Console: show, autosize NoActivate
-	}
-
-} ; END logg
-
-minConsole:
-	WinHide, ahk_id %consid%	
-return
-
-closeConsole:
-	consoleClose()
-return
-
-consoleClose()
-{
-	gui, Console: Destroy
-	consid := 0
-}
-
-saveConsole:
-	GUI, Console: +OwnDialogs
-	FileSelectFile, logsaveloc,S,% "Log " . DateString(true) . ".log",Save Log, Logs (*.log)
-	if(logsaveloc)
-	{
-		filecopy, %logloc%, %logsaveloc%
-	}
-return
-
-openConsole:
-	run, %logloc%
-return
-
-slideConsole:
-	if(conshide := ! conshide)
-	{
-	WinMove, ahk_id %consid%,,0,0
-	}
-	else
-	{
-	WinMove, ahk_id %consid%,,30 - conmaxw,0
-	}
-return
-
-clearconsole:
-	FileDelete, % logloc
-	GuiControl, Text, %LogConts%, % ""
-	ControlMove,,,,,30, ahk_id %LogConts%
-	gui, Console: show, x0 y0 autosize NoActivate
-return
-
-DateString(filesafe = false)
-{
-	if(filesafe)
-	{
-		FormatTime, mcurrentTime, %A_Now%, yyyy-MM-dd HH-mm-ss
-	}
-	else
-	{
-		FormatTime, mcurrentTime, %A_Now%, yyyy-MM-dd HH:mm:ss
-	}
-	return mcurrentTime
-}
