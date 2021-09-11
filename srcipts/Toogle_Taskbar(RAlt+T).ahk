@@ -2,7 +2,7 @@
 OnExit("ExitFunc")
 
 ; $F12:: HideShowTaskbar(hide := !hide)
-~!T:: HideShowTaskbar(hide := !hide)
+RAlt & T:: HideShowTaskbar(hide := !hide)
 
    
 HideShowTaskbar(action) {
