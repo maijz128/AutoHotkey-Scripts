@@ -11,7 +11,7 @@ SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 
 global testLogger := new Logger("keyboard2mouse.test.log")
 loging(msg){ 
-    ;testLogger.log(msg)
+    ; testLogger.log(msg)
 }
 
 
@@ -26,12 +26,14 @@ global workerA := new Worker()
 SetTitleMatchMode, 1
 #IfWinActive ahk_exe notepad++.exe
 {
-     
-    $^F8::readData() 
-    $^F9::saveData()
-    $^F11::resetData()
-    $^F10::enterRecord()
-    $^F12::quitRecord()
+    # Ctrl + F6 
+    $^F6::workerA.pause()
+    $^F7::workerA.resume() 
+    $^F8::workerA.readData() 
+    $^F9::workerA.saveData()
+    $^F11::workerA.resetData()
+    $^F10::workerA.enterRecord()
+    $^F12::workerA.quitRecord()
 
     
     $q::handle("q")
@@ -70,27 +72,13 @@ test(){
     workerA.test() 
 } 
 
-enterRecord(){ 
-    workerA.enterRecord() 
-} 
-quitRecord(){ 
-    workerA.quitRecord() 
-} 
-handle(keyName){ 
-    workerA.handle(keyName) 
-}
-resetData(){
-    workerA.resetData()
-}
-readData(){
-    workerA.readData()
-}
-saveData(){
-    workerA.saveData()
+handle(keyName){
+    workerA.handle(keyName)
 }
 
 
 Class Worker {
+    paused := false
     isRecord := False
     keyMap := {}
     filename := ""
@@ -108,21 +96,37 @@ Class Worker {
         }
     }
 
+    log(msg){
+        loging(msg)
+    }
+
+    pause(){
+        this.paused := true
+        this.showMessage("pause")
+        this.log("pause")
+    }
+
+    resume(){
+        this.paused := false
+        this.showMessage("resume")
+        this.log("resume")
+    }
+
     enterRecord(){
         this.isRecord := True
-        loging("enter record...")
-        this.showMessage("enter record...")
+        this.log("enter record...")
+        this.showMessage("enter record")
     }
 
     quitRecord(){
         this.isRecord := False
-        loging("quit record")
+        this.log("quit record")
         this.showMessage("quit record.")
     }
 
     resetData(){
         this.keyMap := {}
-        loging("reset data")
+        this.log("reset data")
         this.showMessage("reset data")
     }
 
@@ -130,10 +134,10 @@ Class Worker {
         filename := this.filename
         IfNotExist, %filename% 
         {
-            loging("not exist data file.")
+            this.log("not exist data file.")
             return
         }
-        loging("read data...")
+        this.log("read data...")
         Loop, read, %filename% 
         {
             If (A_LoopReadLine = ""){
@@ -145,20 +149,16 @@ Class Worker {
             ypos := array[3]
 
             this.keyMap[keyName] := {"x": xpos, "y": ypos}
-            loging(" key_" . keyName . " x_" . xpos . " y_" . ypos)
+            this.log(" key_" . keyName . " x_" . xpos . " y_" . ypos)
         }
-        loging("read data done.")
+        this.log("read data done.")
         this.showMessage("read data")
     }
 
     saveData(){
-        filename := this.filename
-        IfExist, %filename% 
-        {
-            FileDelete, %filename%
-        }
+        this.log("start save data ...")
 
-        loging("save data start...")
+        dataLines := ""
         array := this.keyMap
         For key, value in array
         {
@@ -167,34 +167,50 @@ Class Worker {
             ypos := value["y"]
 
             if(keyName != "" && xpos != "" && ypos != ""){
-                line := keyName . "," . xpos . "," . ypos
-                FileAppend, %line%, %filename%
-                FileAppend, `n, %filename%  ; new line
+                line := keyName . "," . xpos . "," . ypos . "`n"
+                dataLines := dataLines . line
 
-                loging(" key_" . keyName . " x_" . xpos . " y_" . ypos) 
+                this.log(" key_" . keyName . " x_" . xpos . " y_" . ypos) 
             }
 
         }
-        loging("save data done.")
-        this.showMessage("save data")
+        if(dataLines == ""){
+            this.log("save data failed: data is empty!")
+            this.showMessage("save data failed")
+        }else{
+            filename := this.filename
+            IfExist, %filename% 
+            {
+                FileDelete, %filename%
+            }
+            FileAppend, %dataLines%, %filename%
+
+            this.log("save data succeed.")
+            this.showMessage("save data succeed")
+        }
     }
 
     handle(keyName){
-        loging("handle key: " . keyName)
-        loging("is record: " . (this.isRecord ? "true" : "false") )
+        if(this.paused){
+            send %keyName%
+            return
+        } 
+
+        this.log("handle key: " . keyName)
+        ; this.log("is record: " . (this.isRecord ? "true" : "false") )
 
         if(this.isRecord){
             MouseGetPos, xpos, ypos 
             this.keyMap[keyName] := { "x": xpos, "y": ypos}
 
-            loging("record key: " . keyName . " x: " . xpos . " y: " . ypos)
+            this.log("record key: " . keyName . " x: " . xpos . " y: " . ypos)
         }else{
             if(this.keyMap.HasKey(keyName)){
                 targetX := this.keyMap[keyName]["x"]
                 targetY := this.keyMap[keyName]["y"]
                 this.click(targetX, targetY)
 
-                loging("target x: " . targetX . " target y: " . targetY) 
+                this.log("target x: " . targetX . " target y: " . targetY) 
             }else{
                 send %keyName%
             }

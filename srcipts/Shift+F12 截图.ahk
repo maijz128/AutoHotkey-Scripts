@@ -1,0 +1,5 @@
+
+~+F12::PrintScreen
+
+
+

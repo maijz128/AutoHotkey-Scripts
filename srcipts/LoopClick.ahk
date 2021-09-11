@@ -6,7 +6,7 @@ SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 #Persistent
 #SingleInstance
 
-SLEEP_TIME := 100 
+SLEEP_TIME := 1 
 canClick := false
 
 
